@@ -81,9 +81,11 @@ async function startFakeWorkspace() {
         return;
       }
 
-      if (req.method === 'GET' && url.pathname === '/api/search/searchByPhoneAndAccount') {
-        if (url.searchParams.get('searchKey') === state.knownPhone) {
-          json(200, { data: { profile: { userId: 'user-1', name: 'Khách Test' }, conversation: { id: 'conv-1' } } });
+      if (req.method === 'POST' && url.pathname === '/api/search/searchNewContact') {
+        let payload = {};
+        try { payload = JSON.parse(body || '{}'); } catch { payload = {}; }
+        if (payload.searchKey === state.knownPhone) {
+          json(200, { data: { profile: { userId: 'user-1', displayName: 'Khách Test' }, conversation: { id: 'conv-1' } } });
           return;
         }
         json(200, { data: {} });

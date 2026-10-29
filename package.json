@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-zsm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "n8n nodes for a sales chat workspace: list sale accounts, find contacts by phone, check friendship and send messages.",
   "keywords": [
     "n8n-community-node-package",
@@ -41,7 +41,7 @@
     ]
   },
   "dependencies": {
-    "zsm-sdk": "^0.1.0"
+    "zsm-sdk": "^0.1.1"
   },
   "peerDependencies": {
     "n8n-workflow": ">=1.0.0"
