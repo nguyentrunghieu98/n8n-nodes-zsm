@@ -256,3 +256,28 @@ test('loadOptions.getAccounts returns sale accounts', async () => {
     ]);
   });
 });
+
+
+test('item errors expose structured fields when continueOnFail is on', async () => {
+  await withWorkspace(async (workspace) => {
+    workspace.state.failAddFriend = true;
+    const node = new Zsm();
+    const context = createContext({
+      params: {
+        resource: 'friendRequest',
+        operation: 'send',
+        accountId: 'acc-1',
+        phone: '0900000001',
+        message: 'Xin chào',
+        options: { dryRun: false },
+      },
+      credentials: credentialsFor(workspace),
+      continueOnFail: true,
+    });
+    const [[item]] = await node.execute.call(context);
+    assert.equal(item.json.errorStatus, 500);
+    assert.equal(item.json.errorName, 'HttpError');
+    assert.match(item.json.error, /HTTP 500/);
+    assert.ok(item.json.errorBody.includes('upstream exploded'));
+  });
+});

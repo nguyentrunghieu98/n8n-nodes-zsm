@@ -21,6 +21,7 @@ async function startFakeWorkspace() {
     logins: 0,
     accountId: 'acc-1',
     knownPhone: '+84900000001',
+    failAddFriend: false,
   };
 
   const server = http.createServer((req, res) => {
@@ -95,6 +96,10 @@ async function startFakeWorkspace() {
       }
 
       if (req.method === 'GET' && url.pathname === '/api/contact/addFriend') {
+        if (state.failAddFriend) {
+          json(500, { status: 'error', error: { message: 'upstream exploded', code: 'E_UPSTREAM' } });
+          return;
+        }
         state.friendRequests.push({
           accountId: url.searchParams.get('accountId'),
           userId: url.searchParams.get('userId'),

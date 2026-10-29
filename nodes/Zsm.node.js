@@ -247,8 +247,15 @@ class Zsm {
         const json = await runItem(this, client, { resource, operation, itemIndex: i });
         results.push({ json, pairedItem: { item: i } });
       } catch (error) {
+        const details = {
+          error: error.message,
+          errorName: error.name ?? 'Error',
+          errorCode: error.code ?? null,
+          errorStatus: error.status ?? null,
+          errorBody: typeof error.body === 'string' ? error.body.slice(0, 500) : null,
+        };
         if (this.continueOnFail()) {
-          results.push({ json: { error: error.message }, pairedItem: { item: i } });
+          results.push({ json: details, pairedItem: { item: i } });
           continue;
         }
         if (error instanceof NodeOperationError) throw error;
