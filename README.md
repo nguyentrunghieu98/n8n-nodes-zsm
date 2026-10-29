@@ -59,6 +59,20 @@ Mỗi dòng khách trong workflow thường có `Mã Nhân Viên`. Thêm cột `
 
 rồi truyền vào trường **Sale Account**. Node không tự đoán tài khoản theo tên để tránh gửi nhầm sale.
 
+## Lỗi có cấu trúc
+
+Khi node được đặt `Continue On Fail` / `onError = continueRegularOutput`, mỗi item lỗi trả thêm:
+
+| Field | Ý nghĩa |
+| --- | --- |
+| `error` | Thông báo ngắn |
+| `errorName` | Loại lỗi (`HttpError`, `ApiError`, `AuthenticationError`...) |
+| `errorCode` | Mã lỗi API nếu có |
+| `errorStatus` | HTTP status nếu có |
+| `errorBody` | Body rút gọn 500 ký tự để chẩn đoán |
+
+Dùng các field này để ghi log DB; không cần parse chuỗi.
+
 ## Ghi chú an toàn
 
 - Không bật Dry Run = false cho tới khi đã chạy thử một khách và đối soát log.
