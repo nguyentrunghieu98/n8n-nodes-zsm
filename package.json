@@ -1,7 +1,7 @@
 {
   "name": "n8n-nodes-zsm",
-  "version": "0.1.1",
-  "description": "n8n nodes for a sales chat workspace: list sale accounts, find contacts by phone, check friendship and send messages.",
+  "version": "0.3.1",
+  "description": "n8n nodes for a sales chat workspace: list sale accounts, find contacts by phone, check friendship, send messages and invite customers to Zalo groups by card tier.",
   "keywords": [
     "n8n-community-node-package",
     "n8n",
@@ -24,6 +24,7 @@
     "credentials",
     "lib",
     "icons",
+    "vendor",
     "README.md",
     "LICENSE"
   ],
@@ -39,9 +40,6 @@
     "nodes": [
       "nodes/Zsm.node.js"
     ]
-  },
-  "dependencies": {
-    "zsm-sdk": "^0.1.1"
   },
   "peerDependencies": {
     "n8n-workflow": ">=1.0.0"

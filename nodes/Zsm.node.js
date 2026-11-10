@@ -35,6 +35,7 @@ class Zsm {
             { name: 'Account', value: 'account' },
             { name: 'Contact', value: 'contact' },
             { name: 'Friend Request', value: 'friendRequest' },
+            { name: 'Group', value: 'group' },
             { name: 'Message', value: 'message' },
           ],
           default: 'account',
@@ -68,6 +69,13 @@ class Zsm {
               description: 'Tìm hồ sơ khách theo số điện thoại',
               action: 'Find a contact by phone',
             },
+            {
+              name: 'List Friends',
+              value: 'listFriends',
+              description:
+                'Tải toàn bộ danh sách bạn của tài khoản sale (uid + globalId) để tra cứu ngoại tuyến',
+              action: 'List friends of a sale account',
+            },
           ],
           default: 'findByPhone',
         },
@@ -98,6 +106,34 @@ class Zsm {
           name: 'operation',
           type: 'options',
           noDataExpression: true,
+          displayOptions: { show: { resource: ['group'] } },
+          options: [
+            {
+              name: 'Get from Link',
+              value: 'get',
+              description: 'Đọc thông tin nhóm (groupId, tên, số thành viên) từ link mời',
+              action: 'Get a group from its link',
+            },
+            {
+              name: 'Check Member',
+              value: 'checkMember',
+              description: 'Kiểm tra một người dùng đã ở trong nhóm chưa',
+              action: 'Check whether a user is in a group',
+            },
+            {
+              name: 'Invite',
+              value: 'invite',
+              description: 'Mời một khách vào nhóm Zalo',
+              action: 'Invite a customer to a group',
+            },
+          ],
+          default: 'invite',
+        },
+        {
+          displayName: 'Operation',
+          name: 'operation',
+          type: 'options',
+          noDataExpression: true,
           displayOptions: { show: { resource: ['message'] } },
           options: [
             {
@@ -118,8 +154,9 @@ class Zsm {
           },
           default: '',
           required: true,
-          displayOptions: { show: { resource: ['contact', 'friendRequest', 'message'] } },
-          description: 'Tài khoản sale dùng để thao tác. Danh sách tải từ credential.',
+          displayOptions: { show: { resource: ['contact', 'friendRequest', 'group', 'message'] } },
+          description:
+            'Tài khoản sale dùng để thao tác. Tài khoản phải là thành viên nhóm thì mới mời được người khác.',
         },
         {
           displayName: 'Phone Number',
@@ -129,8 +166,8 @@ class Zsm {
           required: true,
           displayOptions: {
             show: {
-              resource: ['contact', 'friendRequest'],
-              operation: ['findByPhone', 'send'],
+              resource: ['contact', 'friendRequest', 'group'],
+              operation: ['findByPhone', 'send', 'invite'],
             },
           },
           description: 'Số điện thoại khách, ví dụ 0900000000.',
@@ -143,11 +180,11 @@ class Zsm {
           required: true,
           displayOptions: {
             show: {
-              resource: ['friendRequest'],
-              operation: ['getStatus'],
+              resource: ['friendRequest', 'group'],
+              operation: ['getStatus', 'checkMember'],
             },
           },
-          description: 'ID người dùng trên workspace chat.',
+          description: 'ID người dùng trên workspace chat. Dùng Contact → Find by Phone để lấy trước.',
         },
         {
           displayName: 'Message',
@@ -179,6 +216,16 @@ class Zsm {
           description: 'ID người nhận. Dùng node Contact → Find by Phone để lấy trước.',
         },
         {
+          displayName: 'Group Link',
+          name: 'groupLink',
+          type: 'string',
+          default: '',
+          required: true,
+          displayOptions: { show: { resource: ['group'] } },
+          description: 'Link mời vào nhóm, ví dụ https://zalo.me/g/abc12345.',
+          placeholder: 'https://zalo.me/g/...',
+        },
+        {
           displayName: 'Options',
           name: 'options',
           type: 'collection',
@@ -186,8 +233,8 @@ class Zsm {
           default: {},
           displayOptions: {
             show: {
-              resource: ['friendRequest', 'message'],
-              operation: ['send'],
+              resource: ['friendRequest', 'group', 'message'],
+              operation: ['send', 'invite'],
             },
           },
           options: [
@@ -277,6 +324,12 @@ async function runItem(context, client, { resource, operation, itemIndex }) {
       });
     }
 
+    if (resource === 'contact' && operation === 'listFriends') {
+      return operations.listFriends(client, {
+        accountId: context.getNodeParameter('accountId', itemIndex),
+      });
+    }
+
     if (resource === 'friendRequest' && operation === 'getStatus') {
       return operations.getFriendStatus(client, {
         accountId: context.getNodeParameter('accountId', itemIndex),
@@ -290,6 +343,32 @@ async function runItem(context, client, { resource, operation, itemIndex }) {
         accountId: context.getNodeParameter('accountId', itemIndex),
         phone: context.getNodeParameter('phone', itemIndex),
         message: context.getNodeParameter('message', itemIndex),
+        dryRun: options.dryRun !== false,
+      });
+    }
+
+    if (resource === 'group' && operation === 'get') {
+      return operations.getGroup(client, {
+        accountId: context.getNodeParameter('accountId', itemIndex),
+        groupLink: context.getNodeParameter('groupLink', itemIndex),
+      });
+    }
+
+    if (resource === 'group' && operation === 'checkMember') {
+      return operations.checkGroupMember(client, {
+        accountId: context.getNodeParameter('accountId', itemIndex),
+        groupLink: context.getNodeParameter('groupLink', itemIndex),
+        userId: context.getNodeParameter('userId', itemIndex),
+      });
+    }
+
+    if (resource === 'group' && operation === 'invite') {
+      const options = context.getNodeParameter('options', itemIndex, {});
+      return operations.inviteToGroup(client, {
+        accountId: context.getNodeParameter('accountId', itemIndex),
+        groupLink: context.getNodeParameter('groupLink', itemIndex),
+        phone: context.getNodeParameter('phone', itemIndex, ''),
+        userId: context.getNodeParameter('userId', itemIndex, ''),
         dryRun: options.dryRun !== false,
       });
     }

@@ -109,6 +109,30 @@ test('Contact: Find by Phone normalizes the phone', async () => {
     assert.equal(item.json.userId, 'user-1');
     assert.equal(item.json.name, 'Khách Test');
     assert.equal(item.json.conversationId, 'conv-1');
+    assert.equal(item.json.globalId, 'GLOBAL-1');
+    assert.equal(item.json.isFriend, true);
+  });
+});
+
+test('Contact: List Friends returns uid + globalId for the whole account', async () => {
+  await withWorkspace(async (workspace) => {
+    const node = new Zsm();
+    const context = createContext({
+      params: {
+        resource: 'contact',
+        operation: 'listFriends',
+        accountId: 'acc-1',
+      },
+      credentials: credentialsFor(workspace),
+    });
+    const [[item]] = await node.execute.call(context);
+    assert.equal(item.json.accountId, 'acc-1');
+    assert.equal(item.json.count, 2);
+    assert.equal(item.json.complete, true);
+    assert.deepEqual(item.json.friends, [
+      { uid: 'user-1', globalId: 'GLOBAL-1', displayName: 'Khách Test', zaloName: 'Khách Test' },
+      { uid: 'user-2', globalId: 'GLOBAL-2', displayName: 'Khách Hai', zaloName: '' },
+    ]);
   });
 });
 
@@ -279,5 +303,145 @@ test('item errors expose structured fields when continueOnFail is on', async () 
     assert.equal(item.json.errorName, 'HttpError');
     assert.match(item.json.error, /HTTP 500/);
     assert.ok(item.json.errorBody.includes('upstream exploded'));
+  });
+});
+
+test('group get resolves a group from its invite link', async () => {
+  await withWorkspace(async (workspace) => {
+    const context = createContext({
+      params: {
+        resource: 'group',
+        operation: 'get',
+        accountId: 'acc-1',
+        groupLink: 'https://zalo.me/g/abc123',
+      },
+      credentials: credentialsFor(workspace),
+    });
+    const [items] = await new Zsm().execute.call(context);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].json.found, true);
+    assert.equal(items[0].json.groupId, 'group-1');
+    assert.equal(items[0].json.name, 'FORMAT GOLD');
+    assert.equal(items[0].json.memberCount, 1);
+  });
+});
+
+test('group checkMember reports membership from the member list', async () => {
+  await withWorkspace(async (workspace) => {
+    const context = createContext({
+      params: {
+        resource: 'group',
+        operation: 'checkMember',
+        accountId: 'acc-1',
+        groupLink: 'https://zalo.me/g/abc123',
+        userId: 'user-1',
+      },
+      credentials: credentialsFor(workspace),
+    });
+    const [items] = await new Zsm().execute.call(context);
+    assert.equal(items[0].json.inGroup, true);
+    assert.equal(items[0].json.complete, true);
+  });
+});
+
+test('group checkMember returns false for a user outside the group', async () => {
+  await withWorkspace(async (workspace) => {
+    const context = createContext({
+      params: {
+        resource: 'group',
+        operation: 'checkMember',
+        accountId: 'acc-1',
+        groupLink: 'https://zalo.me/g/abc123',
+        userId: 'user-999',
+      },
+      credentials: credentialsFor(workspace),
+    });
+    const [items] = await new Zsm().execute.call(context);
+    assert.equal(items[0].json.inGroup, false);
+  });
+});
+
+test('group invite resolves the phone and calls inviteMembers', async () => {
+  await withWorkspace(async (workspace) => {
+    workspace.state.groupMembers = [{ id: 'someone-else', dName: 'Khác' }];
+    const context = createContext({
+      params: {
+        resource: 'group',
+        operation: 'invite',
+        accountId: 'acc-1',
+        groupLink: 'https://zalo.me/g/abc123',
+        phone: workspace.state.knownPhone,
+        options: { dryRun: false },
+      },
+      credentials: credentialsFor(workspace),
+    });
+    const [items] = await new Zsm().execute.call(context);
+    assert.equal(items[0].json.status, 'INVITED');
+    assert.equal(items[0].json.userId, 'user-1');
+    assert.equal(items[0].json.groupId, 'group-1');
+    assert.equal(workspace.state.invites.length, 1);
+    assert.deepEqual(workspace.state.invites[0], {
+      groupId: 'group-1',
+      accountId: 'acc-1',
+      membersId: ['user-1'],
+    });
+  });
+});
+
+test('group invite with dryRun does not call the invite endpoint', async () => {
+  await withWorkspace(async (workspace) => {
+    const context = createContext({
+      params: {
+        resource: 'group',
+        operation: 'invite',
+        accountId: 'acc-1',
+        groupLink: 'https://zalo.me/g/abc123',
+        phone: workspace.state.knownPhone,
+        options: { dryRun: true },
+      },
+      credentials: credentialsFor(workspace),
+    });
+    const [items] = await new Zsm().execute.call(context);
+    assert.equal(items[0].json.status, 'DRY_RUN');
+    assert.equal(workspace.state.invites.length, 0);
+  });
+});
+
+test('group invite reports NOT_FOUND for an unknown phone', async () => {
+  await withWorkspace(async (workspace) => {
+    const context = createContext({
+      params: {
+        resource: 'group',
+        operation: 'invite',
+        accountId: 'acc-1',
+        groupLink: 'https://zalo.me/g/abc123',
+        phone: '0909999999',
+        options: { dryRun: false },
+      },
+      credentials: credentialsFor(workspace),
+    });
+    const [items] = await new Zsm().execute.call(context);
+    assert.equal(items[0].json.status, 'NOT_FOUND');
+    assert.equal(workspace.state.invites.length, 0);
+  });
+});
+
+test('group invite surfaces a workspace error code', async () => {
+  await withWorkspace(async (workspace) => {
+    workspace.state.failInviteCode = 251;
+    const context = createContext({
+      params: {
+        resource: 'group',
+        operation: 'invite',
+        accountId: 'acc-1',
+        groupLink: 'https://zalo.me/g/abc123',
+        phone: workspace.state.knownPhone,
+        options: { dryRun: false },
+      },
+      credentials: credentialsFor(workspace),
+    });
+    const [items] = await new Zsm().execute.call(context);
+    assert.equal(items[0].json.status, 'FAILED');
+    assert.equal(items[0].json.code, 251);
   });
 });

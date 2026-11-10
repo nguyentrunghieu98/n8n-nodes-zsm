@@ -22,6 +22,10 @@ async function startFakeWorkspace() {
     accountId: 'acc-1',
     knownPhone: '+84900000001',
     failAddFriend: false,
+    groupId: 'group-1',
+    groupMembers: [{ id: 'user-1', dName: 'Khách Test' }],
+    invites: [],
+    failInviteCode: null,
   };
 
   const server = http.createServer((req, res) => {
@@ -85,10 +89,30 @@ async function startFakeWorkspace() {
         let payload = {};
         try { payload = JSON.parse(body || '{}'); } catch { payload = {}; }
         if (payload.searchKey === state.knownPhone) {
-          json(200, { data: { profile: { userId: 'user-1', displayName: 'Khách Test' }, conversation: { id: 'conv-1' } } });
+          json(200, {
+            data: {
+              profile: { userId: 'user-1', displayName: 'Khách Test', globalId: 'GLOBAL-1', isFr: 1 },
+              conversation: { id: 'conv-1' },
+            },
+          });
           return;
         }
         json(200, { data: {} });
+        return;
+      }
+
+      if (req.method === 'GET' && url.pathname === '/api/contact/filter') {
+        json(200, {
+          status: 'success',
+          data: {
+            content: [
+              { uid: 'user-1', globalId: 'GLOBAL-1', displayName: 'Khách Test', zaloName: 'Khách Test' },
+              { uid: 'user-2', globalId: 'GLOBAL-2', displayName: 'Khách Hai', zaloName: '' },
+            ],
+            totalElements: 2,
+            totalPages: 1,
+          },
+        });
         return;
       }
 
@@ -114,6 +138,46 @@ async function startFakeWorkspace() {
       if (req.method === 'POST' && url.pathname === '/api/message/sms') {
         state.messages.push(JSON.parse(body));
         json(200, { data: { cliMsgId: 'msg-1' } });
+        return;
+      }
+
+      // Group info by link: the workspace answers with a double envelope.
+      if (req.method === 'GET' && url.pathname === '/api/message/getGroupInfoByLink') {
+        const link = url.searchParams.get('link') || '';
+        if (!link.includes('zalo.me/g/')) {
+          json(200, { status: 'success', data: { error_code: 0, data: {} } });
+          return;
+        }
+        json(200, {
+          status: 'success',
+          data: {
+            error_code: 0,
+            error_message: 'Successful.',
+            data: {
+              groupId: state.groupId,
+              name: 'FORMAT GOLD',
+              creatorId: 'creator-1',
+              totalMember: state.groupMembers.length,
+              hasMoreMember: 0,
+              currentMems: state.groupMembers,
+              setting: { joinAppr: 0, addMemberOnly: 0, lockViewMember: 0 },
+            },
+          },
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && url.pathname === '/api/conversation/inviteMembers') {
+        const payload = JSON.parse(body || '{}');
+        state.invites.push(payload);
+        if (state.failInviteCode) {
+          json(200, { error_code: state.failInviteCode, error_message: 'Không thể thêm thành viên' });
+          return;
+        }
+        if (!state.groupMembers.some((member) => payload.membersId?.includes(member.id))) {
+          state.groupMembers.push({ id: payload.membersId[0], dName: 'Mời mới' });
+        }
+        json(200, { status: 'success', data: { error_code: 0, error_message: 'Successful.', data: {} } });
         return;
       }
 
